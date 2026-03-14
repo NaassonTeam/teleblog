@@ -30,7 +30,7 @@ msg() {
           lang_zh) echo "中文" ;;
           lang_ar) echo "العربية" ;;
           folder_prompt) echo "Выберите папку для данных Teleblog" ;;
-          folder_enter) echo "Введите путь (Enter — текущая, p — выбор папки):" ;;
+          folder_enter) echo "Select folder (arrows, type to search, Enter to confirm):" ;;
           installer_data) echo "Установщик Teleblog — данные: " ;;
           docker_starting) echo "Запускаем Docker…" ;;
           docker_installing) echo "Устанавливаем Docker…" ;;
@@ -51,7 +51,7 @@ msg() {
           lang_zh) echo "中文" ;;
           lang_ar) echo "العربية" ;;
           folder_prompt) echo "选择 Teleblog 数据文件夹" ;;
-          folder_enter) echo "输入路径（Enter 当前目录，p 选择文件夹）：" ;;
+          folder_enter) echo "选择文件夹（方向键，输入搜索，Enter 确认）：" ;;
           installer_data) echo "Teleblog 安装程序 — 数据： " ;;
           docker_starting) echo "正在启动 Docker…" ;;
           docker_installing) echo "正在安装 Docker…" ;;
@@ -72,7 +72,7 @@ msg() {
           lang_zh) echo "中文" ;;
           lang_ar) echo "العربية" ;;
           folder_prompt) echo "اختر مجلد بيانات Teleblog" ;;
-          folder_enter) echo "أدخل المسار (Enter للحالي، p لاختيار مجلد):" ;;
+          folder_enter) echo "اختر مجلداً (أسهم، اكتب للبحث، Enter للتأكيد):" ;;
           installer_data) echo "مثبت Teleblog — البيانات: " ;;
           docker_starting) echo "جاري تشغيل Docker…" ;;
           docker_installing) echo "جاري تثبيت Docker…" ;;
@@ -93,7 +93,7 @@ msg() {
           lang_zh) echo "中文" ;;
           lang_ar) echo "العربية" ;;
           folder_prompt) echo "Select folder for Teleblog data" ;;
-          folder_enter) echo "Enter path (Enter for current, p for folder picker):" ;;
+          folder_enter) echo "Select folder (arrows, type to search, Enter to confirm):" ;;
           installer_data) echo "Teleblog installer — data: " ;;
           docker_starting) echo "Starting Docker…" ;;
           docker_installing) echo "Installing Docker…" ;;
@@ -147,8 +147,24 @@ detect_os() {
   esac
 }
 
-# ─── Folder picker (GUI when available) ───
-pick_folder() {
+# ─── TUI folder picker (fzf: arrows, type to search) ───
+pick_folder_tui() {
+  local start="${1:-$HOME}"
+  if ! command -v fzf &>/dev/null; then
+    return 1
+  fi
+  local chosen
+  chosen=$(find "$start" -maxdepth 8 -type d 2>/dev/null | sort | fzf \
+    --height 50% \
+    --prompt "Select folder (arrows, type to search, Enter to confirm)> " \
+    --reverse \
+    --bind "ctrl-c:abort")
+  [[ -n "$chosen" ]] && echo "$chosen" && return 0
+  return 1
+}
+
+# ─── GUI folder picker (fallback) ───
+pick_folder_gui() {
   local os=$(detect_os)
   local prompt
   prompt=$(msg folder_prompt)
@@ -196,20 +212,20 @@ resolve_root() {
   else
     echo ""
     log "Step 2: $(msg folder_enter)"
-    printf "%s> " "$(pwd)"
-    read -r input
-    input="${input:-$(pwd)}"
-    if [[ "$input" == "p" || "$input" == "picker" ]]; then
-      log "Opening folder picker..."
-      if picked=$(pick_folder 2>/dev/null); then
-        ROOT="$picked"
-        log "Folder: $ROOT"
-      else
-        ROOT="$(pwd)"
-        log "Using current dir: $ROOT"
-      fi
+    local picked
+    if picked=$(pick_folder_tui "$HOME" 2>/dev/null); then
+      ROOT="$picked"
+      log "Folder: $ROOT"
+    elif picked=$(pick_folder_gui 2>/dev/null); then
+      ROOT="$picked"
+      log "Folder: $ROOT"
     else
-      ROOT="$input"
+      if ! command -v fzf &>/dev/null; then
+        log "Install fzf for folder picker: brew install fzf"
+      fi
+      printf "%s> " "$(pwd)"
+      read -r input
+      ROOT="${input:-$(pwd)}"
     fi
   fi
 
