@@ -11,7 +11,7 @@
 set -uo pipefail
 
 CONTAINER="teleblog"
-IMAGE="${TELEBLOG_IMAGE:-ghcr.io/naassonteam/teleblog-selfhost:latest}"
+IMAGE="${TELEBLOG_IMAGE:-cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest}"
 BLOG_PORT="${BLOG_PORT:-7433}"
 INSTALLER_BUILD="2026.03.14-r1"
 RUN_ID="run_$(date +%s)"
@@ -366,7 +366,21 @@ run_container() {
   fi
 
   log_info "$(msg pulling)"
-  docker pull "$IMAGE" || die "run" "docker pull failed"
+  local pull_err
+  pull_err="$(mktemp)"
+  if ! docker pull "$IMAGE" 2>"$pull_err"; then
+    local err_text
+    err_text="$(tr '\n' ' ' <"$pull_err" | sed 's/"/\\"/g')"
+    rm -f "$pull_err"
+    if printf '%s' "$err_text" | LC_ALL=C grep -qi "denied"; then
+      die "run" "Access denied to image $IMAGE. Run: docker login ghcr.io (PAT with read:packages), or set TELEBLOG_IMAGE to a public image. Original error: $err_text"
+    fi
+    if printf '%s' "$err_text" | LC_ALL=C grep -qi "manifest unknown"; then
+      die "run" "Image tag not found: $IMAGE. Set TELEBLOG_IMAGE to existing tag. Original error: $err_text"
+    fi
+    die "run" "docker pull failed for $IMAGE. Error: $err_text"
+  fi
+  rm -f "$pull_err"
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
   docker run -d \
     --name "$CONTAINER" \
@@ -411,6 +425,7 @@ main() {
   log_info "Build: $INSTALLER_BUILD"
   log_info "Run ID: $RUN_ID"
   log_info "Event log: $EVENT_LOG"
+  log_info "Image: $IMAGE"
 
   if [[ "$CMD" == "stop" ]]; then
     stop_container
