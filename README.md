@@ -10,7 +10,12 @@ chmod +x install.sh
 ./install.sh
 ```
 
-Step 1 downloads the script. Step 2 makes it executable. Step 3 runs it. The script asks for language and folder (Enter = current dir). No extra deps. Then open http://localhost:7433.
+The installer flow is deterministic:
+1) language -> 2) data folder -> 3) Docker check/install/start -> 4) image pull -> 5) container run.
+
+If something fails, installer prints explicit `ERROR:` and writes structured events to:
+- `./teleblog-installer.ndjson` (before folder selection)
+- `<selected-folder>/teleblog-installer.ndjson` (after folder selection)
 
 ## Stop
 
@@ -20,7 +25,20 @@ Step 1 downloads the script. Step 2 makes it executable. Step 3 runs it. The scr
 
 ## Non-interactive
 
-`./install.sh -y` — skip prompts, use current dir. Env: `TELEBLOG_LANG=ru`, `TELEBLOG_ROOT=/path`
+`./install.sh -y` — skip prompts, use current dir.
+
+Useful env vars:
+- `TELEBLOG_LANG=ru|en|zh|ar`
+- `TELEBLOG_ROOT=/path/to/folder`
+- `BLOG_PORT=7433`
+- `TELEBLOG_EVENT_LOG=/path/installer.ndjson`
+- `TELEBLOG_DRY_RUN=1` or `./install.sh --dry-run`
+
+## Release Flow (maintainers)
+
+- `tele-blog` = main source repo.
+- `teleblog` = public installer repo only.
+- Sync to `teleblog` only when installer artifacts changed (`install.sh`, `install-README.md`, `LICENSE`, `VERSION`).
 
 ## Version
 
