@@ -30,7 +30,7 @@ msg() {
           lang_zh) echo "中文" ;;
           lang_ar) echo "العربية" ;;
           folder_prompt) echo "Выберите папку для данных Teleblog" ;;
-          folder_enter) echo "Введите путь к папке (или Enter — текущая):" ;;
+          folder_enter) echo "Введите путь (Enter — текущая, p — выбор папки):" ;;
           installer_data) echo "Установщик Teleblog — данные: " ;;
           docker_starting) echo "Запускаем Docker…" ;;
           docker_installing) echo "Устанавливаем Docker…" ;;
@@ -51,7 +51,7 @@ msg() {
           lang_zh) echo "中文" ;;
           lang_ar) echo "العربية" ;;
           folder_prompt) echo "选择 Teleblog 数据文件夹" ;;
-          folder_enter) echo "输入文件夹路径（或 Enter 使用当前目录）：" ;;
+          folder_enter) echo "输入路径（Enter 当前目录，p 选择文件夹）：" ;;
           installer_data) echo "Teleblog 安装程序 — 数据： " ;;
           docker_starting) echo "正在启动 Docker…" ;;
           docker_installing) echo "正在安装 Docker…" ;;
@@ -72,7 +72,7 @@ msg() {
           lang_zh) echo "中文" ;;
           lang_ar) echo "العربية" ;;
           folder_prompt) echo "اختر مجلد بيانات Teleblog" ;;
-          folder_enter) echo "أدخل مسار المجلد (أو Enter للمجلد الحالي):" ;;
+          folder_enter) echo "أدخل المسار (Enter للحالي، p لاختيار مجلد):" ;;
           installer_data) echo "مثبت Teleblog — البيانات: " ;;
           docker_starting) echo "جاري تشغيل Docker…" ;;
           docker_installing) echo "جاري تثبيت Docker…" ;;
@@ -93,7 +93,7 @@ msg() {
           lang_zh) echo "中文" ;;
           lang_ar) echo "العربية" ;;
           folder_prompt) echo "Select folder for Teleblog data" ;;
-          folder_enter) echo "Enter folder path (or Enter for current):" ;;
+          folder_enter) echo "Enter path (Enter for current, p for folder picker):" ;;
           installer_data) echo "Teleblog installer — data: " ;;
           docker_starting) echo "Starting Docker…" ;;
           docker_installing) echo "Installing Docker…" ;;
@@ -189,18 +189,26 @@ resolve_root() {
   [[ "$cmd" == "-y" ]] && { ROOT="$(pwd)"; DATA_DIR="$ROOT/data"; CHATS_DIR="$ROOT/chats"; return; }
   [[ -n "${TELEBLOG_ROOT:-}" ]] && { ROOT="${TELEBLOG_ROOT}"; DATA_DIR="$ROOT/data"; CHATS_DIR="$ROOT/chats"; return; }
 
-  local picked
-  if picked=$(pick_folder 2>/dev/null); then
-    ROOT="$picked"
-    log "Folder: $ROOT"
-  elif [[ -t 0 ]]; then
+  if [[ ! -t 0 ]]; then
+    ROOT="$(pwd)"
+    log "Using current dir: $ROOT"
+  else
     echo ""
     echo "$(msg folder_enter)"
     read -r -e -p "$(pwd)> " input
-    ROOT="${input:-$(pwd)}"
-  else
-    ROOT="$(pwd)"
-    log "Using current dir: $ROOT"
+    input="${input:-$(pwd)}"
+    if [[ "$input" == "p" || "$input" == "picker" ]]; then
+      log "Opening folder picker..."
+      if picked=$(pick_folder 2>/dev/null); then
+        ROOT="$picked"
+        log "Folder: $ROOT"
+      else
+        ROOT="$(pwd)"
+        log "Using current dir: $ROOT"
+      fi
+    else
+      ROOT="$input"
+    fi
   fi
 
   ROOT="$(cd "$ROOT" 2>/dev/null && pwd)" || ROOT="$(pwd)"
