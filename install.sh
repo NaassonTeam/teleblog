@@ -13,6 +13,15 @@ CONTAINER="teleblog"
 LOG_PREFIX="[teleblog]"
 
 log() { echo "$LOG_PREFIX $*"; }
+agent_log() {
+  local hypothesis_id="$1"
+  local location="$2"
+  local message="$3"
+  local data="$4"
+  local ts=$(( $(date +%s) * 1000 ))
+  printf '{"sessionId":"d1c656","runId":"pre-fix","hypothesisId":"%s","location":"%s","message":"%s","data":%s,"timestamp":%s}\n' \
+    "$hypothesis_id" "$location" "$message" "$data" "$ts" >> "debug-d1c656.log"
+}
 IMAGE="${TELEBLOG_IMAGE:-ghcr.io/naassonteam/teleblog-selfhost:latest}"
 ROOT=""
 DATA_DIR=""
@@ -186,10 +195,21 @@ start_docker() {
 
 # ─── Check Docker (returns 0=ok, 1=installed not running, 2=not installed) ───
 check_docker() {
+  # #region agent log
+  agent_log "H1" "install.sh:check_docker:entry" "check_docker_entry" '{"phase":"entry"}'
+  # #endregion
   if ! command -v docker &>/dev/null; then
+    # #region agent log
+    agent_log "H2" "install.sh:check_docker:no_binary" "docker_binary_missing" '{"hasDockerBinary":false}'
+    # #endregion
     return 2
   fi
-  if docker info &>/dev/null 2>&1; then
+  docker info &>/dev/null 2>&1
+  local info_rc=$?
+  # #region agent log
+  agent_log "H3" "install.sh:check_docker:docker_info_rc" "docker_info_returned" "{\"dockerInfoRc\":$info_rc}"
+  # #endregion
+  if [[ $info_rc -eq 0 ]]; then
     return 0
   fi
   return 1
@@ -283,9 +303,21 @@ main() {
   log "$(msg installer_data)$DATA_DIR"
 
   log "Checking Docker..."
+  # #region agent log
+  agent_log "H1" "install.sh:main:before_check_docker" "about_to_call_check_docker" "{\"lang\":\"$LANG\"}"
+  # #endregion
   check_docker
+  # #region agent log
+  agent_log "H1" "install.sh:main:after_check_docker" "returned_from_check_docker" '{"returned":true}'
+  # #endregion
   local ret=$?
+  # #region agent log
+  agent_log "H4" "install.sh:main:ret_initialized" "ret_initialized" "{\"ret\":$ret}"
+  # #endregion
   while [[ $ret -ne 0 ]]; do
+    # #region agent log
+    agent_log "H4" "install.sh:main:loop_enter" "docker_loop_enter" "{\"ret\":$ret}"
+    # #endregion
     if [[ $ret -eq 1 ]]; then
       log "$(msg docker_starting)"
       start_docker
@@ -304,8 +336,14 @@ main() {
         *)     log "$(msg docker_required)"; exit 1 ;;
       esac
     fi
+    # #region agent log
+    agent_log "H4" "install.sh:main:before_recheck" "before_recheck" '{"phase":"before_recheck"}'
+    # #endregion
     check_docker
     ret=$?
+    # #region agent log
+    agent_log "H4" "install.sh:main:after_recheck" "after_recheck" "{\"ret\":$ret}"
+    # #endregion
   done
 
   if ! check_docker; then
