@@ -32,8 +32,11 @@ Useful env vars:
 - `TELEBLOG_LANG=ru|en|zh|ar`
 - `TELEBLOG_ROOT=/path/to/folder`
 - `BLOG_PORT=7433`
+- `TELEBLOG_DOCKER_PLATFORM=linux/amd64` (optional override)
 - `TELEBLOG_EVENT_LOG=/path/installer.ndjson`
 - `TELEBLOG_DRY_RUN=1` or `./install.sh --dry-run`
+
+Installer now waits until HTTP on `localhost:BLOG_PORT` is actually ready before printing `Done`.
 
 ## Version
 

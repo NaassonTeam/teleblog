@@ -23,6 +23,7 @@ CHATS_DIR=""
 LANG="${TELEBLOG_LANG:-en}"
 SKIP_PROMPTS=0
 DRY_RUN="${TELEBLOG_DRY_RUN:-0}"
+DOCKER_RUN_PLATFORM="${TELEBLOG_DOCKER_PLATFORM:-}"
 
 detect_os() {
   case "$(uname -s)" in
@@ -307,6 +308,34 @@ wait_docker_ready() {
   return 1
 }
 
+wait_http_ready() {
+  local waited=0
+  if ! command -v curl >/dev/null 2>&1; then
+    log_warn "curl is not available, skip HTTP readiness check."
+    return 0
+  fi
+  while [[ $waited -lt 180 ]]; do
+    if ! docker ps --format '{{.Names}}' | LC_ALL=C grep -qx "$CONTAINER"; then
+      local tail_logs
+      tail_logs="$(docker logs --tail 80 "$CONTAINER" 2>&1 | tr '\n' ' ' | sed 's/"/\\"/g')"
+      die "run" "Container '$CONTAINER' exited before HTTP became ready. Logs: $tail_logs"
+    fi
+    local code
+    code="$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:${BLOG_PORT}/" || true)"
+    if [[ "$code" =~ ^2|^3 ]]; then
+      return 0
+    fi
+    sleep 2
+    waited=$(( waited + 2 ))
+    if (( waited % 10 == 0 )); then
+      log_info "Waiting for HTTP on :${BLOG_PORT}... ${waited}s"
+    fi
+  done
+  local tail_logs
+  tail_logs="$(docker logs --tail 80 "$CONTAINER" 2>&1 | tr '\n' ' ' | sed 's/"/\\"/g')"
+  die "run" "HTTP is not ready on :${BLOG_PORT} after 180s. Container logs: $tail_logs"
+}
+
 ensure_docker() {
   step_begin "docker"
   log_info "$(msg docker_check)"
@@ -382,13 +411,24 @@ run_container() {
   fi
   rm -f "$pull_err"
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  local run_platform_arg=()
+  if [[ -z "$DOCKER_RUN_PLATFORM" && "$PLATFORM" == "mac" && "$(uname -m)" == "arm64" ]]; then
+    DOCKER_RUN_PLATFORM="linux/amd64"
+    log_info "Using platform ${DOCKER_RUN_PLATFORM} on Apple Silicon (first start may be slower)."
+  fi
+  if [[ -n "$DOCKER_RUN_PLATFORM" ]]; then
+    run_platform_arg=(--platform "$DOCKER_RUN_PLATFORM")
+  fi
   docker run -d \
+    "${run_platform_arg[@]}" \
     --name "$CONTAINER" \
     -v "$DATA_DIR:/data" \
     -v "$CHATS_DIR:/chats:ro" \
     -p "$BLOG_PORT:7433" \
     --restart unless-stopped \
     "$IMAGE" >/dev/null || die "run" "docker run failed"
+
+  wait_http_ready
 
   step_end "success"
 }
