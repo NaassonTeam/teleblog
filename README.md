@@ -34,12 +34,6 @@ Useful env vars:
 - `TELEBLOG_EVENT_LOG=/path/installer.ndjson`
 - `TELEBLOG_DRY_RUN=1` or `./install.sh --dry-run`
 
-## Release Flow (maintainers)
-
-- `tele-blog` = main source repo.
-- `teleblog` = public installer repo only.
-- Sync to `teleblog` only when installer artifacts changed (`install.sh`, `install-README.md`, `LICENSE`, `VERSION`).
-
 ## Version
 
 See [VERSION](VERSION).
