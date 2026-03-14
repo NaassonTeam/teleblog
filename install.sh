@@ -126,6 +126,7 @@ select_lang() {
   local n
   read -p "1-4 [1]: " n
   n="${n:-1}"
+  n="${n:0:1}"
   case "$n" in
     1) LANG="en" ;;
     2) LANG="ru" ;;
@@ -237,10 +238,12 @@ check_docker() {
 install_docker_linux() {
   log "$(msg docker_installing)"
   if ! command -v curl &>/dev/null; then
-    echo "Install curl first: sudo apt install curl"
+    log "Install curl first: sudo apt install curl"
     exit 1
   fi
+  log "Downloading Docker installer..."
   curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
+  log "Running Docker installer..."
   sh /tmp/get-docker.sh
   rm -f /tmp/get-docker.sh
   sudo usermod -aG docker "$USER" 2>/dev/null || true
@@ -252,6 +255,7 @@ install_docker_linux() {
 install_docker_mac() {
   log "$(msg docker_installing)"
   if command -v brew &>/dev/null; then
+    log "Downloading Docker via Homebrew (may take 5–10 min)..."
     brew install --cask docker
     log "$(msg docker_starting)"
     open -a Docker
@@ -267,6 +271,7 @@ install_docker_mac() {
 install_docker_win() {
   log "$(msg docker_installing)"
   if command -v winget &>/dev/null; then
+    log "Downloading Docker Desktop (may take a few min)..."
     winget install -e --id Docker.DockerDesktop --accept-package-agreements --accept-source-agreements 2>/dev/null || true
     log "$(msg docker_starting)"
     if [[ -f "/c/Program Files/Docker/Docker/Docker Desktop.exe" ]]; then
@@ -292,7 +297,7 @@ wait_docker() {
     if docker info &>/dev/null 2>&1; then
       return 0
     fi
-    [[ $((i % 10)) -eq 0 ]] && [[ $i -gt 0 ]] && log "Waiting for Docker... ${i}s"
+    [[ $((i % 10)) -eq 0 ]] && [[ $i -gt 0 ]] && log "Waiting for Docker to start... ${i}s"
     sleep 2
     i=$((i + 2))
   done
@@ -315,7 +320,7 @@ main() {
   resolve_root "$cmd"
   log "$(msg installer_data)$DATA_DIR"
 
-  # Docker: check → start if needed → install if needed
+  log "Checking Docker..."
   check_docker
   local ret=$?
   while [[ $ret -ne 0 ]]; do
@@ -362,6 +367,7 @@ main() {
   log "Creating data dirs..."
   mkdir -p "$DATA_DIR" "$CHATS_DIR"
   log "$(msg pulling)"
+  log "Downloading Teleblog image (may take 1–2 min)..."
   docker pull "$IMAGE"
   log "Starting container..."
   docker rm -f "$CONTAINER" 2>/dev/null || true
