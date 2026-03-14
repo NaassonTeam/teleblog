@@ -124,7 +124,8 @@ select_lang() {
   echo "  4) $(msg lang_ar)"
   echo ""
   local n
-  read -p "1-4 [1]: " n
+  printf "1-4 [1]: "
+  read -r n
   n="${n:-1}"
   n="${n:0:1}"
   case "$n" in
@@ -194,8 +195,9 @@ resolve_root() {
     log "Using current dir: $ROOT"
   else
     echo ""
-    echo "$(msg folder_enter)"
-    read -r -e -p "$(pwd)> " input
+    log "Step 2: $(msg folder_enter)"
+    printf "%s> " "$(pwd)"
+    read -r input
     input="${input:-$(pwd)}"
     if [[ "$input" == "p" || "$input" == "picker" ]]; then
       log "Opening folder picker..."
@@ -325,6 +327,7 @@ main() {
 
   log "Starting Teleblog installer"
   select_lang "$cmd"
+  log "Language: $LANG"
   resolve_root "$cmd"
   log "$(msg installer_data)$DATA_DIR"
 
