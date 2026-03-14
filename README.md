@@ -16,12 +16,6 @@ This downloads and runs the installer. You'll see a log of each step: language s
 curl -fsSL https://raw.githubusercontent.com/NaassonTeam/teleblog/main/install.sh | bash -s -- --stop
 ```
 
-## Alternative (clone)
-
-```bash
-git clone https://github.com/NaassonTeam/teleblog.git && cd teleblog && bash install.sh
-```
-
 ## Non-interactive
 
 `curl ... | bash -s -- -y` — skip prompts, use current dir. Env: `TELEBLOG_LANG=ru`, `TELEBLOG_ROOT=/path`
