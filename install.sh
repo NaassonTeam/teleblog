@@ -204,8 +204,10 @@ check_docker() {
     # #endregion
     return 2
   fi
+  set +e
   docker info &>/dev/null 2>&1
   local info_rc=$?
+  set -e
   # #region agent log
   agent_log "H3" "install.sh:check_docker:docker_info_rc" "docker_info_returned" "{\"dockerInfoRc\":$info_rc}"
   # #endregion
@@ -306,11 +308,15 @@ main() {
   # #region agent log
   agent_log "H1" "install.sh:main:before_check_docker" "about_to_call_check_docker" "{\"lang\":\"$LANG\"}"
   # #endregion
-  check_docker
+  local ret
+  if check_docker; then
+    ret=0
+  else
+    ret=$?
+  fi
   # #region agent log
   agent_log "H1" "install.sh:main:after_check_docker" "returned_from_check_docker" '{"returned":true}'
   # #endregion
-  local ret=$?
   # #region agent log
   agent_log "H4" "install.sh:main:ret_initialized" "ret_initialized" "{\"ret\":$ret}"
   # #endregion
