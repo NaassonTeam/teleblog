@@ -30,7 +30,7 @@ msg() {
           lang_zh) echo "中文" ;;
           lang_ar) echo "العربية" ;;
           folder_prompt) echo "Выберите папку для данных Teleblog" ;;
-          folder_enter) echo "Select folder (arrows, type to search, Enter to confirm):" ;;
+          folder_enter) echo "Папка для данных (Enter = текущая):" ;;
           installer_data) echo "Установщик Teleblog — данные: " ;;
           docker_starting) echo "Запускаем Docker…" ;;
           docker_installing) echo "Устанавливаем Docker…" ;;
@@ -51,7 +51,7 @@ msg() {
           lang_zh) echo "中文" ;;
           lang_ar) echo "العربية" ;;
           folder_prompt) echo "选择 Teleblog 数据文件夹" ;;
-          folder_enter) echo "选择文件夹（方向键，输入搜索，Enter 确认）：" ;;
+          folder_enter) echo "数据文件夹（Enter = 当前）：" ;;
           installer_data) echo "Teleblog 安装程序 — 数据： " ;;
           docker_starting) echo "正在启动 Docker…" ;;
           docker_installing) echo "正在安装 Docker…" ;;
@@ -72,7 +72,7 @@ msg() {
           lang_zh) echo "中文" ;;
           lang_ar) echo "العربية" ;;
           folder_prompt) echo "اختر مجلد بيانات Teleblog" ;;
-          folder_enter) echo "اختر مجلداً (أسهم، اكتب للبحث، Enter للتأكيد):" ;;
+          folder_enter) echo "مجلد البيانات (Enter = الحالي):" ;;
           installer_data) echo "مثبت Teleblog — البيانات: " ;;
           docker_starting) echo "جاري تشغيل Docker…" ;;
           docker_installing) echo "جاري تثبيت Docker…" ;;
@@ -93,7 +93,7 @@ msg() {
           lang_zh) echo "中文" ;;
           lang_ar) echo "العربية" ;;
           folder_prompt) echo "Select folder for Teleblog data" ;;
-          folder_enter) echo "Select folder (arrows, type to search, Enter to confirm):" ;;
+          folder_enter) echo "Folder for data (Enter = current):" ;;
           installer_data) echo "Teleblog installer — data: " ;;
           docker_starting) echo "Starting Docker…" ;;
           docker_installing) echo "Installing Docker…" ;;
@@ -147,99 +147,7 @@ detect_os() {
   esac
 }
 
-# ─── Install Homebrew (Mac) ───
-install_brew() {
-  if command -v brew &>/dev/null; then
-    return 0
-  fi
-  log "Installing Homebrew..."
-  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  if [[ -f /opt/homebrew/bin/brew ]]; then
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-  elif [[ -f /usr/local/bin/brew ]]; then
-    eval "$(/usr/local/bin/brew shellenv)"
-  fi
-}
-
-# ─── Install fzf (for folder picker) ───
-install_fzf() {
-  local os=$(detect_os)
-  log "Installing fzf for folder picker..."
-  if [[ "$os" == "mac" ]]; then
-    install_brew || return 1
-    brew install fzf
-    return 0
-  elif [[ "$os" == "linux" ]]; then
-    if command -v apt-get &>/dev/null; then
-      sudo apt-get update -qq && sudo apt-get install -y fzf
-      return 0
-    fi
-    if command -v dnf &>/dev/null; then
-      sudo dnf install -y fzf
-      return 0
-    fi
-    if command -v brew &>/dev/null; then
-      brew install fzf
-      return 0
-    fi
-  fi
-  return 1
-}
-
-# ─── TUI folder picker (fzf: arrows, type to search) ───
-pick_folder_tui() {
-  local start="${1:-$HOME}"
-  if ! command -v fzf &>/dev/null; then
-    return 1
-  fi
-  local chosen
-  chosen=$(find "$start" -maxdepth 8 -type d 2>/dev/null | sort | fzf \
-    --height 50% \
-    --prompt "Select folder (arrows, type to search, Enter to confirm)> " \
-    --reverse \
-    --bind "ctrl-c:abort")
-  [[ -n "$chosen" ]] && echo "$chosen" && return 0
-  return 1
-}
-
-# ─── GUI folder picker (fallback) ───
-pick_folder_gui() {
-  local os=$(detect_os)
-  local prompt
-  prompt=$(msg folder_prompt)
-  local chosen=""
-
-  if [[ "$os" == "mac" ]]; then
-    chosen=$(osascript -e "tell application \"System Events\" to return POSIX path of (choose folder with prompt \"$prompt\")" 2>/dev/null)
-  elif [[ "$os" == "linux" ]]; then
-    if command -v zenity &>/dev/null; then
-      chosen=$(zenity --file-selection --directory --title="$prompt" 2>/dev/null)
-    elif command -v kdialog &>/dev/null; then
-      chosen=$(kdialog --getexistingdirectory "$(pwd)" "$prompt" 2>/dev/null)
-    elif command -v yad &>/dev/null; then
-      chosen=$(yad --file --directory --title="$prompt" 2>/dev/null)
-    fi
-  elif [[ "$os" == "win" ]]; then
-    chosen=$(powershell.exe -NoProfile -Command "
-      Add-Type -AssemblyName System.Windows.Forms
-      \$f = New-Object System.Windows.Forms.FolderBrowserDialog
-      \$f.Description = '$prompt'
-      if (\$f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { \$f.SelectedPath }
-    " 2>/dev/null | tr '\\' '/')
-    if [[ -n "$chosen" && "$chosen" =~ ^[A-Za-z]: ]]; then
-      local drive="${chosen:0:1}"
-      chosen="/$(echo "$drive" | tr '[:upper:]' '[:lower:]')${chosen:2}"
-    fi
-  fi
-
-  if [[ -n "$chosen" ]]; then
-    echo "$chosen"
-    return 0
-  fi
-  return 1
-}
-
-# ─── Resolve ROOT ───
+# ─── Resolve ROOT (no extra deps: just prompt + read) ───
 resolve_root() {
   local cmd="${1:-}"
   [[ "$cmd" == "-y" ]] && { ROOT="$(pwd)"; DATA_DIR="$ROOT/data"; CHATS_DIR="$ROOT/chats"; return; }
@@ -251,21 +159,9 @@ resolve_root() {
   else
     echo ""
     log "Step 2: $(msg folder_enter)"
-    if ! command -v fzf &>/dev/null; then
-      install_fzf || true
-    fi
-    local picked
-    if picked=$(pick_folder_tui "$HOME" 2>/dev/null); then
-      ROOT="$picked"
-      log "Folder: $ROOT"
-    elif picked=$(pick_folder_gui 2>/dev/null); then
-      ROOT="$picked"
-      log "Folder: $ROOT"
-    else
-      printf "%s> " "$(pwd)"
-      read -r input
-      ROOT="${input:-$(pwd)}"
-    fi
+    printf "[%s]> " "$(pwd)"
+    read -r input
+    ROOT="${input:-$(pwd)}"
   fi
 
   ROOT="$(cd "$ROOT" 2>/dev/null && pwd)" || ROOT="$(pwd)"
