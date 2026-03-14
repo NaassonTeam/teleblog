@@ -1,22 +1,19 @@
 #!/bin/bash
 # Teleblog self-host installer — universal (Linux, Mac, Windows Git Bash/WSL)
-# Run from any folder: data goes to ./data, container name: teleblog
+# Run from anywhere: folder picker or prompt. Data in chosen folder.
 #
 # Usage:
-#   ./install.sh              # check Docker, run
-#   ./install.sh --stop       # stop container
-#   ./install.sh -y           # auto-install Docker on Linux (no prompt)
-#
-# Put Telegram exports in ./chats/channel_name/result.json — wizard will detect them.
+#   ./install.sh              # folder picker, then install
+#   ./install.sh --stop      # stop container
+#   ./install.sh -y           # skip picker, use current dir
 #
 set -e
 
 CONTAINER="teleblog"
 IMAGE="${TELEBLOG_IMAGE:-ghcr.io/naassonteam/teleblog-selfhost:latest}"
-# Data in current directory — run from project root or your folder
-ROOT="$(pwd)"
-DATA_DIR="$ROOT/data"
-CHATS_DIR="$ROOT/chats"
+ROOT=""
+DATA_DIR=""
+CHATS_DIR=""
 
 # ─── Detect OS ───
 detect_os() {
@@ -26,6 +23,72 @@ detect_os() {
     MINGW*|MSYS*|CYGWIN*) echo "win" ;;
     *)        echo "unknown" ;;
   esac
+}
+
+# ─── Folder picker (GUI when available) ───
+pick_folder() {
+  local os=$(detect_os)
+  local chosen=""
+
+  if [[ "$os" == "mac" ]]; then
+    chosen=$(osascript -e 'tell application "System Events" to return POSIX path of (choose folder with prompt "Select folder for Teleblog data")' 2>/dev/null)
+  elif [[ "$os" == "linux" ]]; then
+    if command -v zenity &>/dev/null; then
+      chosen=$(zenity --file-selection --directory --title="Select folder for Teleblog data" 2>/dev/null)
+    elif command -v kdialog &>/dev/null; then
+      chosen=$(kdialog --getexistingdirectory "$(pwd)" "Select folder for Teleblog data" 2>/dev/null)
+    elif command -v yad &>/dev/null; then
+      chosen=$(yad --file --directory --title="Select folder for Teleblog data" 2>/dev/null)
+    fi
+  elif [[ "$os" == "win" ]]; then
+    chosen=$(powershell.exe -NoProfile -Command "
+      Add-Type -AssemblyName System.Windows.Forms
+      \$f = New-Object System.Windows.Forms.FolderBrowserDialog
+      \$f.Description = 'Select folder for Teleblog data'
+      if (\$f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { \$f.SelectedPath }
+    " 2>/dev/null | tr '\\' '/')
+    # Convert C:/path to /c/path for Git Bash
+    if [[ -n "$chosen" && "$chosen" =~ ^[A-Za-z]: ]]; then
+      local drive="${chosen:0:1}"
+      chosen="/$(echo "$drive" | tr '[:upper:]' '[:lower:]')${chosen:2}"
+    fi
+  fi
+
+  if [[ -n "$chosen" ]]; then
+    echo "$chosen"
+    return 0
+  fi
+  return 1
+}
+
+# ─── Resolve ROOT (folder for data) ───
+resolve_root() {
+  local cmd="${1:-}"
+  local skip_picker=0
+  [[ "$cmd" == "-y" ]] && skip_picker=1
+  [[ -n "${TELEBLOG_ROOT:-}" ]] && skip_picker=1
+
+  if [[ -n "${TELEBLOG_ROOT:-}" ]]; then
+    ROOT="${TELEBLOG_ROOT}"
+  elif [[ $skip_picker -eq 1 ]]; then
+    ROOT="$(pwd)"
+  elif [[ -t 0 ]]; then
+    local picked
+    if picked=$(pick_folder); then
+      ROOT="$picked"
+    else
+      echo ""
+      echo "Enter folder path for Teleblog data (or press Enter for current):"
+      read -r -e -p "$(pwd)> " input
+      ROOT="${input:-$(pwd)}"
+    fi
+  else
+    ROOT="$(pwd)"
+  fi
+
+  ROOT="$(cd "$ROOT" 2>/dev/null && pwd)" || ROOT="$(pwd)"
+  DATA_DIR="$ROOT/data"
+  CHATS_DIR="$ROOT/chats"
 }
 
 # ─── Check Docker ───
@@ -85,6 +148,8 @@ main() {
     exit 0
   fi
 
+  resolve_root "$cmd"
+  echo ""
   echo "Teleblog installer — data: $DATA_DIR"
 
   # Check Docker
