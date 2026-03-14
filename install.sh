@@ -413,12 +413,11 @@ run_container() {
   rm -f "$pull_err"
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
   local run_platform_arg=()
-  if [[ -z "$DOCKER_RUN_PLATFORM" && "$PLATFORM" == "mac" && "$(uname -m)" == "arm64" ]]; then
-    DOCKER_RUN_PLATFORM="linux/amd64"
-    log_info "Using platform ${DOCKER_RUN_PLATFORM} on Apple Silicon (first start may be slower)."
-  fi
+  # Multi-arch image: Docker auto-selects arm64 on Mac, amd64 elsewhere. Override via TELEBLOG_DOCKER_PLATFORM.
   if [[ -n "$DOCKER_RUN_PLATFORM" ]]; then
     run_platform_arg=(--platform "$DOCKER_RUN_PLATFORM")
+  elif [[ "$PLATFORM" == "mac" && "$(uname -m)" == "arm64" ]]; then
+    log_info "Apple Silicon: using native arm64 image."
   fi
   docker run -d \
     "${run_platform_arg[@]}" \

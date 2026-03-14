@@ -29,7 +29,7 @@ If something fails, installer prints explicit `ERROR:` and writes structured eve
 `./install.sh -y` — skip prompts, use current dir.
 
 Useful env vars:
-- `TELEBLOG_IMAGE=cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest` (default image)
+- `TELEBLOG_IMAGE=cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest` (default, multi-arch: native arm64 on Mac)
 - `TELEBLOG_LANG=ru|en|zh|ar`
 - `TELEBLOG_ROOT=/path/to/folder`
 - `BLOG_PORT=7433`
