@@ -7,10 +7,11 @@
 #   bash install.sh --stop   # stop container
 #   bash install.sh -y       # skip prompts, use current dir
 #
-set -e
+set -Ee
 
 CONTAINER="teleblog"
 LOG_PREFIX="[teleblog]"
+INSTALLER_BUILD="debug-2026-03-14-errtrap-1"
 
 log() { echo "$LOG_PREFIX $*"; }
 agent_log() {
@@ -22,6 +23,7 @@ agent_log() {
   printf '{"sessionId":"d1c656","runId":"pre-fix","hypothesisId":"%s","location":"%s","message":"%s","data":%s,"timestamp":%s}\n' \
     "$hypothesis_id" "$location" "$message" "$data" "$ts" >> "debug-d1c656.log"
 }
+trap 'ec=$?; agent_log "H5" "install.sh:trap:ERR" "script_error" "{\"line\":${LINENO},\"exit\":${ec}}"; log "ERROR at line ${LINENO} (exit ${ec})"; exit $ec' ERR
 IMAGE="${TELEBLOG_IMAGE:-ghcr.io/naassonteam/teleblog-selfhost:latest}"
 ROOT=""
 DATA_DIR=""
@@ -299,6 +301,10 @@ main() {
   fi
 
   log "Starting Teleblog installer"
+  log "Build: $INSTALLER_BUILD"
+  # #region agent log
+  agent_log "H1" "install.sh:main:build" "installer_build" "{\"build\":\"$INSTALLER_BUILD\"}"
+  # #endregion
   select_lang "$cmd"
   log "Language: $LANG"
   resolve_root "$cmd"
