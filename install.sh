@@ -297,23 +297,11 @@ main() {
       exit 1
     else
       local os=$(detect_os)
-      local auto_install=0
-      [[ "$cmd" == "-y" ]] && auto_install=1
-      [[ "${TELEBLOG_AUTO_INSTALL_DOCKER:-}" == "1" ]] && auto_install=1
-      [[ ! -t 0 ]] && auto_install=1
-
-      if [[ $auto_install -eq 0 ]]; then
-        echo -n "$(msg docker_install_prompt)"
-        read -n 1 -r
-        echo
-        [[ $REPLY =~ ^[Yy]$ ]] || { log "$(msg docker_required)"; exit 1; }
-      fi
-
       case "$os" in
         linux) install_docker_linux ;;
         mac)   install_docker_mac ;;
         win)   install_docker_win ;;
-        *)     echo "$(msg docker_required)"; exit 1 ;;
+        *)     log "$(msg docker_required)"; exit 1 ;;
       esac
     fi
     check_docker
