@@ -13,6 +13,7 @@ set -uo pipefail
 CONTAINER="teleblog"
 IMAGE="${TELEBLOG_IMAGE:-cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest}"
 BLOG_PORT="${BLOG_PORT:-7433}"
+CONTAINER_WEB_PORT="${CONTAINER_WEB_PORT:-8080}"
 INSTALLER_BUILD="2026.03.14-r1"
 RUN_ID="run_$(date +%s)"
 LOG_PREFIX="[teleblog]"
@@ -402,7 +403,7 @@ run_container() {
     err_text="$(tr '\n' ' ' <"$pull_err" | sed 's/"/\\"/g')"
     rm -f "$pull_err"
     if printf '%s' "$err_text" | LC_ALL=C grep -qi "denied"; then
-      die "run" "Access denied to image $IMAGE. Run: docker login ghcr.io (PAT with read:packages), or set TELEBLOG_IMAGE to a public image. Original error: $err_text"
+      die "run" "Access denied to image $IMAGE. Login to the corresponding registry (for Yandex: docker login cr.yandex) or set TELEBLOG_IMAGE to a public image. Original error: $err_text"
     fi
     if printf '%s' "$err_text" | LC_ALL=C grep -qi "manifest unknown"; then
       die "run" "Image tag not found: $IMAGE. Set TELEBLOG_IMAGE to existing tag. Original error: $err_text"
@@ -424,7 +425,7 @@ run_container() {
     --name "$CONTAINER" \
     -v "$DATA_DIR:/data" \
     -v "$CHATS_DIR:/chats:ro" \
-    -p "$BLOG_PORT:7433" \
+    -p "$BLOG_PORT:$CONTAINER_WEB_PORT" \
     --restart unless-stopped \
     "$IMAGE" >/dev/null || die "run" "docker run failed"
 
