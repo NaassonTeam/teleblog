@@ -10,7 +10,7 @@ chmod +x install.sh
 ./install.sh
 ```
 
-Step 1 downloads the script. Step 2 makes it executable. Step 3 runs it. The script will ask for language, then open a folder picker (fzf: arrows, type to search). Install fzf for the picker: `brew install fzf` (Mac). Then open http://localhost:7433.
+Step 1 downloads the script. Step 2 makes it executable. Step 3 runs it. The script will ask for language, install fzf if needed, then open a folder picker (arrows, type to search). Then open http://localhost:7433.
 
 ## Stop
 

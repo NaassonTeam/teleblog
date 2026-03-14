@@ -147,6 +147,45 @@ detect_os() {
   esac
 }
 
+# ─── Install Homebrew (Mac) ───
+install_brew() {
+  if command -v brew &>/dev/null; then
+    return 0
+  fi
+  log "Installing Homebrew..."
+  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  if [[ -f /opt/homebrew/bin/brew ]]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+  elif [[ -f /usr/local/bin/brew ]]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+  fi
+}
+
+# ─── Install fzf (for folder picker) ───
+install_fzf() {
+  local os=$(detect_os)
+  log "Installing fzf for folder picker..."
+  if [[ "$os" == "mac" ]]; then
+    install_brew || return 1
+    brew install fzf
+    return 0
+  elif [[ "$os" == "linux" ]]; then
+    if command -v apt-get &>/dev/null; then
+      sudo apt-get update -qq && sudo apt-get install -y fzf
+      return 0
+    fi
+    if command -v dnf &>/dev/null; then
+      sudo dnf install -y fzf
+      return 0
+    fi
+    if command -v brew &>/dev/null; then
+      brew install fzf
+      return 0
+    fi
+  fi
+  return 1
+}
+
 # ─── TUI folder picker (fzf: arrows, type to search) ───
 pick_folder_tui() {
   local start="${1:-$HOME}"
@@ -212,6 +251,9 @@ resolve_root() {
   else
     echo ""
     log "Step 2: $(msg folder_enter)"
+    if ! command -v fzf &>/dev/null; then
+      install_fzf || true
+    fi
     local picked
     if picked=$(pick_folder_tui "$HOME" 2>/dev/null); then
       ROOT="$picked"
@@ -220,9 +262,6 @@ resolve_root() {
       ROOT="$picked"
       log "Folder: $ROOT"
     else
-      if ! command -v fzf &>/dev/null; then
-        log "Install fzf for folder picker: brew install fzf"
-      fi
       printf "%s> " "$(pwd)"
       read -r input
       ROOT="${input:-$(pwd)}"
