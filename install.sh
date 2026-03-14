@@ -1,11 +1,11 @@
 #!/bin/bash
 # Teleblog self-host installer — universal (Linux, Mac, Windows Git Bash/WSL)
-# Run from anywhere: folder picker or prompt. Data in chosen folder.
+# Run from anywhere: language → folder picker → auto Docker → install
 #
 # Usage:
-#   ./install.sh              # folder picker, then install
-#   ./install.sh --stop      # stop container
-#   ./install.sh -y           # skip picker, use current dir
+#   ./install.sh              # interactive
+#   ./install.sh --stop       # stop container
+#   ./install.sh -y           # skip prompts, use current dir
 #
 set -e
 
@@ -14,6 +14,123 @@ IMAGE="${TELEBLOG_IMAGE:-ghcr.io/naassonteam/teleblog-selfhost:latest}"
 ROOT=""
 DATA_DIR=""
 CHATS_DIR=""
+LANG="${TELEBLOG_LANG:-en}"
+
+# ─── i18n (EN, RU, ZH, AR) ───
+msg() {
+  local k="$1"
+  case "$LANG" in
+    ru) case "$k" in
+          lang_select) echo "Выберите язык / Select language:" ;;
+          lang_en) echo "English" ;;
+          lang_ru) echo "Русский" ;;
+          lang_zh) echo "中文" ;;
+          lang_ar) echo "العربية" ;;
+          folder_prompt) echo "Выберите папку для данных Teleblog" ;;
+          folder_enter) echo "Введите путь к папке (или Enter — текущая):" ;;
+          installer_data) echo "Установщик Teleblog — данные: " ;;
+          docker_starting) echo "Запускаем Docker…" ;;
+          docker_installing) echo "Устанавливаем Docker…" ;;
+          docker_install_prompt) echo "Docker не найден. Установить? [y/N] " ;;
+          docker_required) echo "Требуется Docker: https://docs.docker.com/get-docker/" ;;
+          docker_not_ready) echo "Docker ещё не готов. Перезапустите терминал или: sudo systemctl start docker" ;;
+          pulling) echo "Загружаем образ…" ;;
+          open_url) echo "Откройте: http://localhost:7433" ;;
+          data_path) echo "Данные: " ;;
+          exports_path) echo "Экспорты: ./chats/имя_канала/result.json" ;;
+          stopped) echo "Остановлен " ;;
+          *) echo "$k" ;;
+        esac ;;
+    zh) case "$k" in
+          lang_select) echo "选择语言 / Select language:" ;;
+          lang_en) echo "English" ;;
+          lang_ru) echo "Русский" ;;
+          lang_zh) echo "中文" ;;
+          lang_ar) echo "العربية" ;;
+          folder_prompt) echo "选择 Teleblog 数据文件夹" ;;
+          folder_enter) echo "输入文件夹路径（或 Enter 使用当前目录）：" ;;
+          installer_data) echo "Teleblog 安装程序 — 数据： " ;;
+          docker_starting) echo "正在启动 Docker…" ;;
+          docker_installing) echo "正在安装 Docker…" ;;
+          docker_install_prompt) echo "未找到 Docker。是否安装？[y/N] " ;;
+          docker_required) echo "需要 Docker：https://docs.docker.com/get-docker/" ;;
+          docker_not_ready) echo "Docker 尚未就绪。请重启终端或运行：sudo systemctl start docker" ;;
+          pulling) echo "正在拉取镜像…" ;;
+          open_url) echo "打开：http://localhost:7433" ;;
+          data_path) echo "数据： " ;;
+          exports_path) echo "导出：./chats/频道名/result.json" ;;
+          stopped) echo "已停止 " ;;
+          *) echo "$k" ;;
+        esac ;;
+    ar) case "$k" in
+          lang_select) echo "اختر اللغة / Select language:" ;;
+          lang_en) echo "English" ;;
+          lang_ru) echo "Русский" ;;
+          lang_zh) echo "中文" ;;
+          lang_ar) echo "العربية" ;;
+          folder_prompt) echo "اختر مجلد بيانات Teleblog" ;;
+          folder_enter) echo "أدخل مسار المجلد (أو Enter للمجلد الحالي):" ;;
+          installer_data) echo "مثبت Teleblog — البيانات: " ;;
+          docker_starting) echo "جاري تشغيل Docker…" ;;
+          docker_installing) echo "جاري تثبيت Docker…" ;;
+          docker_install_prompt) echo "Docker غير موجود. تثبيته؟ [y/N] " ;;
+          docker_required) echo "Docker مطلوب: https://docs.docker.com/get-docker/" ;;
+          docker_not_ready) echo "Docker غير جاهز. أعد تشغيل الطرفية أو: sudo systemctl start docker" ;;
+          pulling) echo "جاري سحب الصورة…" ;;
+          open_url) echo "افتح: http://localhost:7433" ;;
+          data_path) echo "البيانات: " ;;
+          exports_path) echo "التصديرات: ./chats/اسم_القناة/result.json" ;;
+          stopped) echo "توقف " ;;
+          *) echo "$k" ;;
+        esac ;;
+    *) case "$k" in
+          lang_select) echo "Select language:" ;;
+          lang_en) echo "English" ;;
+          lang_ru) echo "Русский" ;;
+          lang_zh) echo "中文" ;;
+          lang_ar) echo "العربية" ;;
+          folder_prompt) echo "Select folder for Teleblog data" ;;
+          folder_enter) echo "Enter folder path (or Enter for current):" ;;
+          installer_data) echo "Teleblog installer — data: " ;;
+          docker_starting) echo "Starting Docker…" ;;
+          docker_installing) echo "Installing Docker…" ;;
+          docker_install_prompt) echo "Docker not found. Install now? [y/N] " ;;
+          docker_required) echo "Docker required: https://docs.docker.com/get-docker/" ;;
+          docker_not_ready) echo "Docker not ready. Restart terminal or run: sudo systemctl start docker" ;;
+          pulling) echo "Pulling image…" ;;
+          open_url) echo "Open: http://localhost:7433" ;;
+          data_path) echo "Data: " ;;
+          exports_path) echo "Exports: ./chats/channel_name/result.json" ;;
+          stopped) echo "Stopped " ;;
+          *) echo "$k" ;;
+        esac ;;
+  esac
+}
+
+# ─── Language selection (first step) ───
+select_lang() {
+  [[ -n "${TELEBLOG_LANG:-}" ]] && LANG="${TELEBLOG_LANG}" && return
+  [[ "$1" == "-y" ]] && return
+  [[ ! -t 0 ]] && return
+  echo ""
+  echo "Teleblog"
+  echo "$(msg lang_select)"
+  echo "  1) $(msg lang_en)"
+  echo "  2) $(msg lang_ru)"
+  echo "  3) $(msg lang_zh)"
+  echo "  4) $(msg lang_ar)"
+  echo ""
+  local n
+  read -p "1-4 [1]: " n
+  n="${n:-1}"
+  case "$n" in
+    1) LANG="en" ;;
+    2) LANG="ru" ;;
+    3) LANG="zh" ;;
+    4) LANG="ar" ;;
+    *) LANG="en" ;;
+  esac
+}
 
 # ─── Detect OS ───
 detect_os() {
@@ -28,26 +145,27 @@ detect_os() {
 # ─── Folder picker (GUI when available) ───
 pick_folder() {
   local os=$(detect_os)
+  local prompt
+  prompt=$(msg folder_prompt)
   local chosen=""
 
   if [[ "$os" == "mac" ]]; then
-    chosen=$(osascript -e 'tell application "System Events" to return POSIX path of (choose folder with prompt "Select folder for Teleblog data")' 2>/dev/null)
+    chosen=$(osascript -e "tell application \"System Events\" to return POSIX path of (choose folder with prompt \"$prompt\")" 2>/dev/null)
   elif [[ "$os" == "linux" ]]; then
     if command -v zenity &>/dev/null; then
-      chosen=$(zenity --file-selection --directory --title="Select folder for Teleblog data" 2>/dev/null)
+      chosen=$(zenity --file-selection --directory --title="$prompt" 2>/dev/null)
     elif command -v kdialog &>/dev/null; then
-      chosen=$(kdialog --getexistingdirectory "$(pwd)" "Select folder for Teleblog data" 2>/dev/null)
+      chosen=$(kdialog --getexistingdirectory "$(pwd)" "$prompt" 2>/dev/null)
     elif command -v yad &>/dev/null; then
-      chosen=$(yad --file --directory --title="Select folder for Teleblog data" 2>/dev/null)
+      chosen=$(yad --file --directory --title="$prompt" 2>/dev/null)
     fi
   elif [[ "$os" == "win" ]]; then
     chosen=$(powershell.exe -NoProfile -Command "
       Add-Type -AssemblyName System.Windows.Forms
       \$f = New-Object System.Windows.Forms.FolderBrowserDialog
-      \$f.Description = 'Select folder for Teleblog data'
+      \$f.Description = '$prompt'
       if (\$f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { \$f.SelectedPath }
     " 2>/dev/null | tr '\\' '/')
-    # Convert C:/path to /c/path for Git Bash
     if [[ -n "$chosen" && "$chosen" =~ ^[A-Za-z]: ]]; then
       local drive="${chosen:0:1}"
       chosen="/$(echo "$drive" | tr '[:upper:]' '[:lower:]')${chosen:2}"
@@ -61,24 +179,19 @@ pick_folder() {
   return 1
 }
 
-# ─── Resolve ROOT (folder for data) ───
+# ─── Resolve ROOT ───
 resolve_root() {
   local cmd="${1:-}"
-  local skip_picker=0
-  [[ "$cmd" == "-y" ]] && skip_picker=1
-  [[ -n "${TELEBLOG_ROOT:-}" ]] && skip_picker=1
+  [[ "$cmd" == "-y" ]] && { ROOT="$(pwd)"; DATA_DIR="$ROOT/data"; CHATS_DIR="$ROOT/chats"; return; }
+  [[ -n "${TELEBLOG_ROOT:-}" ]] && { ROOT="${TELEBLOG_ROOT}"; DATA_DIR="$ROOT/data"; CHATS_DIR="$ROOT/chats"; return; }
 
-  if [[ -n "${TELEBLOG_ROOT:-}" ]]; then
-    ROOT="${TELEBLOG_ROOT}"
-  elif [[ $skip_picker -eq 1 ]]; then
-    ROOT="$(pwd)"
-  elif [[ -t 0 ]]; then
+  if [[ -t 0 ]]; then
     local picked
     if picked=$(pick_folder); then
       ROOT="$picked"
     else
       echo ""
-      echo "Enter folder path for Teleblog data (or press Enter for current):"
+      echo "$(msg folder_enter)"
       read -r -e -p "$(pwd)> " input
       ROOT="${input:-$(pwd)}"
     fi
@@ -91,51 +204,95 @@ resolve_root() {
   CHATS_DIR="$ROOT/chats"
 }
 
-# ─── Check Docker ───
-check_docker() {
-  if command -v docker &>/dev/null; then
-    if docker info &>/dev/null 2>&1; then
-      return 0
-    fi
-    echo "Docker is installed but not running. Start Docker Desktop (Mac/Windows) or: sudo systemctl start docker (Linux)"
-    return 1
+# ─── Start Docker (when installed but not running) ───
+start_docker() {
+  local os=$(detect_os)
+  if [[ "$os" == "mac" ]]; then
+    open -a Docker 2>/dev/null || true
+  elif [[ "$os" == "win" ]]; then
+    powershell.exe -NoProfile -Command "
+      \$p = 'C:\Program Files\Docker\Docker\Docker Desktop.exe'
+      if (Test-Path \$p) { Start-Process \$p }
+    " 2>/dev/null || true
+  elif [[ "$os" == "linux" ]]; then
+    sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null || true
   fi
-  return 2
 }
 
-# ─── Install Docker (Linux only) ───
+# ─── Check Docker (returns 0=ok, 1=installed not running, 2=not installed) ───
+check_docker() {
+  if ! command -v docker &>/dev/null; then
+    return 2
+  fi
+  if docker info &>/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+# ─── Install Docker Linux ───
 install_docker_linux() {
-  echo "Installing Docker..."
+  echo "$(msg docker_installing)"
   if ! command -v curl &>/dev/null; then
-    echo "Install curl first: sudo apt install curl  # or yum/dnf"
+    echo "Install curl first: sudo apt install curl"
     exit 1
   fi
   curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
   sh /tmp/get-docker.sh
   rm -f /tmp/get-docker.sh
-  if [[ "$(id -u)" != "0" ]]; then
-    echo "Adding your user to docker group. You may need to log out and back in."
-    sudo usermod -aG docker "$USER" 2>/dev/null || true
-  fi
-  echo "Docker installed. Starting..."
+  sudo usermod -aG docker "$USER" 2>/dev/null || true
   sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null || true
   sleep 2
 }
 
-# ─── Install instructions for Mac/Windows ───
-install_docker_instructions() {
-  local os=$(detect_os)
-  echo ""
-  echo "Install Docker manually:"
-  if [[ "$os" == "mac" ]]; then
-    echo "  brew install --cask docker"
-    echo "  Then open Docker from Applications."
-  elif [[ "$os" == "win" ]]; then
-    echo "  Download Docker Desktop: https://www.docker.com/products/docker-desktop/"
-    echo "  Or use WSL2 and install Docker inside WSL."
+# ─── Install Docker Mac ───
+install_docker_mac() {
+  echo "$(msg docker_installing)"
+  if command -v brew &>/dev/null; then
+    brew install --cask docker
+    echo "$(msg docker_starting)"
+    open -a Docker
+    sleep 10
+    return 0
   fi
-  echo ""
+  echo "$(msg docker_required)"
+  echo "Mac: brew install --cask docker"
   exit 1
+}
+
+# ─── Install Docker Windows ───
+install_docker_win() {
+  echo "$(msg docker_installing)"
+  if command -v winget &>/dev/null; then
+    winget install -e --id Docker.DockerDesktop --accept-package-agreements --accept-source-agreements 2>/dev/null || true
+    echo "$(msg docker_starting)"
+    if [[ -f "/c/Program Files/Docker/Docker/Docker Desktop.exe" ]]; then
+      "/c/Program Files/Docker/Docker/Docker Desktop.exe" &
+    fi
+    sleep 15
+    return 0
+  fi
+  if command -v choco &>/dev/null; then
+    choco install docker-desktop -y
+    sleep 15
+    return 0
+  fi
+  echo "$(msg docker_required)"
+  echo "Windows: winget install Docker.DockerDesktop"
+  exit 1
+}
+
+# ─── Wait for Docker to be ready ───
+wait_docker() {
+  local i=0
+  while [[ $i -lt 120 ]]; do
+    if docker info &>/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+    i=$((i + 2))
+  done
+  return 1
 }
 
 # ─── Main ───
@@ -144,55 +301,62 @@ main() {
 
   if [[ "$cmd" == "--stop" ]]; then
     docker rm -f "$CONTAINER" 2>/dev/null || true
-    echo "Stopped $CONTAINER"
+    echo "$(msg stopped)$CONTAINER"
     exit 0
   fi
 
+  select_lang "$cmd"
   resolve_root "$cmd"
   echo ""
-  echo "Teleblog installer — data: $DATA_DIR"
+  echo "$(msg installer_data)$DATA_DIR"
 
-  # Check Docker
+  # Docker: check → start if needed → install if needed
   check_docker
   local ret=$?
-  if [[ $ret -ne 0 ]]; then
-    if [[ $ret -eq 2 ]]; then
-      local os=$(detect_os)
-      if [[ "$os" == "linux" ]]; then
-        if [[ "${TELEBLOG_AUTO_INSTALL_DOCKER:-}" == "1" ]] || [[ "$cmd" == "-y" ]]; then
-          install_docker_linux
-        elif [[ -t 0 ]]; then
-          read -p "Docker not found. Install now? [y/N] " -n 1 -r
-          echo
-          if [[ $REPLY =~ ^[Yy]$ ]]; then
-            install_docker_linux
-          else
-            echo "Docker required. Install: https://docs.docker.com/get-docker/"
-            exit 1
-          fi
-        else
-          echo "Docker not found. Run: TELEBLOG_AUTO_INSTALL_DOCKER=1 ./install.sh"
-          exit 1
-        fi
-      else
-        install_docker_instructions
+  while [[ $ret -ne 0 ]]; do
+    if [[ $ret -eq 1 ]]; then
+      echo "$(msg docker_starting)"
+      start_docker
+      if wait_docker; then
+        break
       fi
-    else
+      echo "$(msg docker_not_ready)"
       exit 1
-    fi
-  fi
+    else
+      local os=$(detect_os)
+      local auto_install=0
+      [[ "$cmd" == "-y" ]] && auto_install=1
+      [[ "${TELEBLOG_AUTO_INSTALL_DOCKER:-}" == "1" ]] && auto_install=1
 
-  # Re-check Docker
+      if [[ $auto_install -eq 0 ]] && [[ -t 0 ]]; then
+        echo -n "$(msg docker_install_prompt)"
+        read -n 1 -r
+        echo
+        [[ $REPLY =~ ^[Yy]$ ]] || { echo "$(msg docker_required)"; exit 1; }
+      elif [[ $auto_install -eq 0 ]]; then
+        echo "$(msg docker_required)"
+        exit 1
+      fi
+
+      case "$os" in
+        linux) install_docker_linux ;;
+        mac)   install_docker_mac ;;
+        win)   install_docker_win ;;
+        *)     echo "$(msg docker_required)"; exit 1 ;;
+      esac
+    fi
+    check_docker
+    ret=$?
+  done
+
   if ! check_docker; then
-    echo "Docker still not ready. Restart terminal or run: sudo systemctl start docker"
+    echo "$(msg docker_not_ready)"
     exit 1
   fi
 
   mkdir -p "$DATA_DIR" "$CHATS_DIR"
-
-  echo "Pulling image..."
+  echo "$(msg pulling)"
   docker pull "$IMAGE"
-
   docker rm -f "$CONTAINER" 2>/dev/null || true
 
   docker run -d \
@@ -204,9 +368,9 @@ main() {
     "$IMAGE"
 
   echo ""
-  echo "Open: http://localhost:7433"
-  echo "Data: $DATA_DIR"
-  echo "Exports: $CHATS_DIR (./chats/channel_name/result.json)"
+  echo "$(msg open_url)"
+  echo "$(msg data_path)$DATA_DIR"
+  echo "$(msg exports_path)"
 }
 
 main "$@"

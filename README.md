@@ -14,7 +14,7 @@ Or clone and run:
 git clone https://github.com/NaassonTeam/teleblog.git && cd teleblog && ./install.sh
 ```
 
-The installer opens a folder picker (or asks for a path). Choose where to store data. No need to cd first.
+The installer: language selection → folder picker → auto-starts Docker if needed → auto-installs Docker if missing (Mac: brew, Windows: winget, Linux: get.docker.com).
 
 Open http://localhost:7433 — setup wizard will guide you.
 
@@ -26,9 +26,9 @@ curl -fsSL https://raw.githubusercontent.com/NaassonTeam/teleblog/main/install.s
 
 ## Non-interactive
 
-Skip folder picker, use current dir: `./install.sh -y`
+Skip prompts, use current dir: `./install.sh -y`
 
-Or set folder: `TELEBLOG_ROOT=/path/to/folder ./install.sh`
+Env: `TELEBLOG_ROOT=/path ./install.sh`, `TELEBLOG_LANG=ru ./install.sh` (en, ru, zh, ar)
 
 ## Version
 
