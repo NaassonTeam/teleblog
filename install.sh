@@ -188,18 +188,18 @@ resolve_root() {
   [[ "$cmd" == "-y" ]] && { ROOT="$(pwd)"; DATA_DIR="$ROOT/data"; CHATS_DIR="$ROOT/chats"; return; }
   [[ -n "${TELEBLOG_ROOT:-}" ]] && { ROOT="${TELEBLOG_ROOT}"; DATA_DIR="$ROOT/data"; CHATS_DIR="$ROOT/chats"; return; }
 
-  if [[ -t 0 ]]; then
-    local picked
-    if picked=$(pick_folder); then
-      ROOT="$picked"
-    else
-      echo ""
-      echo "$(msg folder_enter)"
-      read -r -e -p "$(pwd)> " input
-      ROOT="${input:-$(pwd)}"
-    fi
+  local picked
+  if picked=$(pick_folder 2>/dev/null); then
+    ROOT="$picked"
+    log "Folder: $ROOT"
+  elif [[ -t 0 ]]; then
+    echo ""
+    echo "$(msg folder_enter)"
+    read -r -e -p "$(pwd)> " input
+    ROOT="${input:-$(pwd)}"
   else
     ROOT="$(pwd)"
+    log "Using current dir: $ROOT"
   fi
 
   ROOT="$(cd "$ROOT" 2>/dev/null && pwd)" || ROOT="$(pwd)"
@@ -312,7 +312,6 @@ main() {
 
   log "Starting Teleblog installer"
   select_lang "$cmd"
-  log "Selecting folder for data..."
   resolve_root "$cmd"
   log "$(msg installer_data)$DATA_DIR"
 
@@ -334,15 +333,13 @@ main() {
       local auto_install=0
       [[ "$cmd" == "-y" ]] && auto_install=1
       [[ "${TELEBLOG_AUTO_INSTALL_DOCKER:-}" == "1" ]] && auto_install=1
+      [[ ! -t 0 ]] && auto_install=1
 
-      if [[ $auto_install -eq 0 ]] && [[ -t 0 ]]; then
+      if [[ $auto_install -eq 0 ]]; then
         echo -n "$(msg docker_install_prompt)"
         read -n 1 -r
         echo
-        [[ $REPLY =~ ^[Yy]$ ]] || { echo "$(msg docker_required)"; exit 1; }
-      elif [[ $auto_install -eq 0 ]]; then
-        echo "$(msg docker_required)"
-        exit 1
+        [[ $REPLY =~ ^[Yy]$ ]] || { log "$(msg docker_required)"; exit 1; }
       fi
 
       case "$os" in
