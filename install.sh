@@ -3,13 +3,16 @@
 # Run from anywhere: language → folder picker → auto Docker → install
 #
 # Usage:
-#   ./install.sh              # interactive
-#   ./install.sh --stop       # stop container
-#   ./install.sh -y           # skip prompts, use current dir
+#   bash install.sh           # interactive
+#   bash install.sh --stop   # stop container
+#   bash install.sh -y       # skip prompts, use current dir
 #
 set -e
 
 CONTAINER="teleblog"
+LOG_PREFIX="[teleblog]"
+
+log() { echo "$LOG_PREFIX $*"; }
 IMAGE="${TELEBLOG_IMAGE:-ghcr.io/naassonteam/teleblog-selfhost:latest}"
 ROOT=""
 DATA_DIR=""
@@ -232,7 +235,7 @@ check_docker() {
 
 # ─── Install Docker Linux ───
 install_docker_linux() {
-  echo "$(msg docker_installing)"
+  log "$(msg docker_installing)"
   if ! command -v curl &>/dev/null; then
     echo "Install curl first: sudo apt install curl"
     exit 1
@@ -247,10 +250,10 @@ install_docker_linux() {
 
 # ─── Install Docker Mac ───
 install_docker_mac() {
-  echo "$(msg docker_installing)"
+  log "$(msg docker_installing)"
   if command -v brew &>/dev/null; then
     brew install --cask docker
-    echo "$(msg docker_starting)"
+    log "$(msg docker_starting)"
     open -a Docker
     sleep 10
     return 0
@@ -262,10 +265,10 @@ install_docker_mac() {
 
 # ─── Install Docker Windows ───
 install_docker_win() {
-  echo "$(msg docker_installing)"
+  log "$(msg docker_installing)"
   if command -v winget &>/dev/null; then
     winget install -e --id Docker.DockerDesktop --accept-package-agreements --accept-source-agreements 2>/dev/null || true
-    echo "$(msg docker_starting)"
+    log "$(msg docker_starting)"
     if [[ -f "/c/Program Files/Docker/Docker/Docker Desktop.exe" ]]; then
       "/c/Program Files/Docker/Docker/Docker Desktop.exe" &
     fi
@@ -289,6 +292,7 @@ wait_docker() {
     if docker info &>/dev/null 2>&1; then
       return 0
     fi
+    [[ $((i % 10)) -eq 0 ]] && [[ $i -gt 0 ]] && log "Waiting for Docker... ${i}s"
     sleep 2
     i=$((i + 2))
   done
@@ -300,27 +304,30 @@ main() {
   local cmd="${1:-}"
 
   if [[ "$cmd" == "--stop" ]]; then
+    log "Stopping container..."
     docker rm -f "$CONTAINER" 2>/dev/null || true
-    echo "$(msg stopped)$CONTAINER"
+    log "$(msg stopped)$CONTAINER"
     exit 0
   fi
 
+  log "Starting Teleblog installer"
   select_lang "$cmd"
+  log "Selecting folder for data..."
   resolve_root "$cmd"
-  echo ""
-  echo "$(msg installer_data)$DATA_DIR"
+  log "$(msg installer_data)$DATA_DIR"
 
   # Docker: check → start if needed → install if needed
   check_docker
   local ret=$?
   while [[ $ret -ne 0 ]]; do
     if [[ $ret -eq 1 ]]; then
-      echo "$(msg docker_starting)"
+      log "$(msg docker_starting)"
       start_docker
       if wait_docker; then
+        log "Docker is ready"
         break
       fi
-      echo "$(msg docker_not_ready)"
+      log "$(msg docker_not_ready)"
       exit 1
     else
       local os=$(detect_os)
@@ -350,13 +357,16 @@ main() {
   done
 
   if ! check_docker; then
-    echo "$(msg docker_not_ready)"
+    log "$(msg docker_not_ready)"
     exit 1
   fi
 
+  log "Docker OK"
+  log "Creating data dirs..."
   mkdir -p "$DATA_DIR" "$CHATS_DIR"
-  echo "$(msg pulling)"
+  log "$(msg pulling)"
   docker pull "$IMAGE"
+  log "Starting container..."
   docker rm -f "$CONTAINER" 2>/dev/null || true
 
   docker run -d \
@@ -367,10 +377,11 @@ main() {
     --restart unless-stopped \
     "$IMAGE"
 
+  log "Done."
   echo ""
-  echo "$(msg open_url)"
-  echo "$(msg data_path)$DATA_DIR"
-  echo "$(msg exports_path)"
+  log "$(msg open_url)"
+  log "$(msg data_path)$DATA_DIR"
+  log "$(msg exports_path)"
 }
 
 main "$@"

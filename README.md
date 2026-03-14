@@ -2,21 +2,13 @@
 
 Turn Telegram channels into static blogs. Self-hosted, runs anywhere.
 
-## Install
+## Install (one command)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/NaassonTeam/teleblog/main/install.sh | bash
 ```
 
-Or clone and run:
-
-```bash
-git clone https://github.com/NaassonTeam/teleblog.git && cd teleblog && ./install.sh
-```
-
-The installer: language selection → folder picker → auto-starts Docker if needed → auto-installs Docker if missing (Mac: brew, Windows: winget, Linux: get.docker.com).
-
-Open http://localhost:7433 — setup wizard will guide you.
+This downloads and runs the installer. You'll see a log of each step: language selection, folder choice, Docker check/start/install, image pull, container start. Then open http://localhost:7433.
 
 ## Stop
 
@@ -24,11 +16,15 @@ Open http://localhost:7433 — setup wizard will guide you.
 curl -fsSL https://raw.githubusercontent.com/NaassonTeam/teleblog/main/install.sh | bash -s -- --stop
 ```
 
+## Alternative (clone)
+
+```bash
+git clone https://github.com/NaassonTeam/teleblog.git && cd teleblog && bash install.sh
+```
+
 ## Non-interactive
 
-Skip prompts, use current dir: `./install.sh -y`
-
-Env: `TELEBLOG_ROOT=/path ./install.sh`, `TELEBLOG_LANG=ru ./install.sh` (en, ru, zh, ar)
+`curl ... | bash -s -- -y` — skip prompts, use current dir. Env: `TELEBLOG_LANG=ru`, `TELEBLOG_ROOT=/path`
 
 ## Version
 
