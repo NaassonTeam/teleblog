@@ -412,21 +412,27 @@ run_container() {
   fi
   rm -f "$pull_err"
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
-  local run_platform_arg=()
   # Multi-arch image: Docker auto-selects arm64 on Mac, amd64 elsewhere. Override via TELEBLOG_DOCKER_PLATFORM.
-  if [[ -n "$DOCKER_RUN_PLATFORM" ]]; then
-    run_platform_arg=(--platform "$DOCKER_RUN_PLATFORM")
-  elif [[ "$PLATFORM" == "mac" && "$(uname -m)" == "arm64" ]]; then
+  if [[ "$PLATFORM" == "mac" && "$(uname -m)" == "arm64" ]]; then
     log_info "Apple Silicon: using native arm64 image."
   fi
-  docker run -d \
-    "${run_platform_arg[@]}" \
-    --name "$CONTAINER" \
-    -v "$DATA_DIR:/data" \
-    -v "$CHATS_DIR:/chats:ro" \
-    -p "$BLOG_PORT:$CONTAINER_WEB_PORT" \
-    --restart unless-stopped \
-    "$IMAGE" >/dev/null || die "run" "docker run failed"
+  if [[ -n "$DOCKER_RUN_PLATFORM" ]]; then
+    docker run -d --platform "$DOCKER_RUN_PLATFORM" \
+      --name "$CONTAINER" \
+      -v "$DATA_DIR:/data" \
+      -v "$CHATS_DIR:/chats:ro" \
+      -p "$BLOG_PORT:$CONTAINER_WEB_PORT" \
+      --restart unless-stopped \
+      "$IMAGE" >/dev/null || die "run" "docker run failed"
+  else
+    docker run -d \
+      --name "$CONTAINER" \
+      -v "$DATA_DIR:/data" \
+      -v "$CHATS_DIR:/chats:ro" \
+      -p "$BLOG_PORT:$CONTAINER_WEB_PORT" \
+      --restart unless-stopped \
+      "$IMAGE" >/dev/null || die "run" "docker run failed"
+  fi
 
   wait_http_ready
 
