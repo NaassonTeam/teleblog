@@ -24,6 +24,26 @@ If something fails, installer prints explicit `ERROR:` and writes structured eve
 ./install.sh --stop
 ```
 
+## Update
+
+From the same folder as the first install (the one that contains `./data` and `./chats`), or with `TELEBLOG_ROOT`:
+
+```bash
+rm -f install.sh
+curl -fL --retry 3 --retry-delay 1 -o install.sh https://raw.githubusercontent.com/NaassonTeam/teleblog/main/install.sh
+chmod +x install.sh
+./install.sh -y
+```
+
+Or manually:
+
+```bash
+docker pull cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest
+docker restart teleblog
+```
+
+Data, TOTP and config are preserved.
+
 ## Non-interactive
 
 `./install.sh -y` — skip prompts, use current dir.
