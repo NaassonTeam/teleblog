@@ -13,7 +13,6 @@ set -uo pipefail
 CONTAINER="teleblog"
 IMAGE="${TELEBLOG_IMAGE:-cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest}"
 BLOG_PORT="${BLOG_PORT:-7433}"
-CONTAINER_WEB_PORT="${CONTAINER_WEB_PORT:-8080}"
 INSTALLER_BUILD="2026.03.14-r1"
 RUN_ID="run_$(date +%s)"
 LOG_PREFIX="[teleblog]"
@@ -418,18 +417,20 @@ run_container() {
   fi
   if [[ -n "$DOCKER_RUN_PLATFORM" ]]; then
     docker run -d --platform "$DOCKER_RUN_PLATFORM" \
+      -e BLOG_PORT="$BLOG_PORT" \
       --name "$CONTAINER" \
       -v "$DATA_DIR:/data" \
       -v "$CHATS_DIR:/chats:ro" \
-      -p "$BLOG_PORT:$CONTAINER_WEB_PORT" \
+      -p "$BLOG_PORT:$BLOG_PORT" \
       --restart unless-stopped \
       "$IMAGE" >/dev/null || die "run" "docker run failed"
   else
     docker run -d \
+      -e BLOG_PORT="$BLOG_PORT" \
       --name "$CONTAINER" \
       -v "$DATA_DIR:/data" \
       -v "$CHATS_DIR:/chats:ro" \
-      -p "$BLOG_PORT:$CONTAINER_WEB_PORT" \
+      -p "$BLOG_PORT:$BLOG_PORT" \
       --restart unless-stopped \
       "$IMAGE" >/dev/null || die "run" "docker run failed"
   fi

@@ -32,8 +32,7 @@ Useful env vars:
 - `TELEBLOG_IMAGE=cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest` (default, multi-arch: native arm64 on Mac)
 - `TELEBLOG_LANG=ru|en|zh|ar`
 - `TELEBLOG_ROOT=/path/to/folder`
-- `BLOG_PORT=7433`
-- `CONTAINER_WEB_PORT=8080` (leave default unless image listens on different port)
+- `BLOG_PORT=7433` (host and container; nginx listens on this port)
 - `TELEBLOG_DOCKER_PLATFORM=linux/amd64` (optional override)
 - `TELEBLOG_EVENT_LOG=/path/installer.ndjson`
 - `TELEBLOG_DRY_RUN=1` or `./install.sh --dry-run`
