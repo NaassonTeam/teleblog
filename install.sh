@@ -421,6 +421,7 @@ write_compose() {
   [[ -n "${TELEBLOG_DOCKER_SOCKET:-}" ]] && socket_line=$'      - /var/run/docker.sock:/var/run/docker.sock\n'
   cat > "$ROOT/docker-compose.yml" << COMPOSE_EOF
 # Teleblog self-host — all data in one folder
+# Worker replicas: docker compose up -d --scale teleblog-worker=3
 services:
   teleblog:
     image: \${TELEBLOG_IMAGE:-cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest}
@@ -428,12 +429,42 @@ services:
     restart: unless-stopped
     ports:
       - "\${BLOG_PORT:-7433}:\${BLOG_PORT:-7433}"
+      - "9199:9199"
     volumes:
       - ./data:/data
       - ./chats:/chats:ro
 ${socket_line}    environment:
       - BLOG_PORT=\${BLOG_PORT:-7433}
       - TELEBLOG_INSTANCE_NAME=\${TELEBLOG_INSTANCE_NAME:-}
+      - QUEUE_PROVIDER=\${QUEUE_PROVIDER:-redis}
+      - QUEUE_URL=\${QUEUE_URL:-redis://redis:6379}
+  teleblog-worker:
+    image: \${TELEBLOG_IMAGE:-cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest}
+    restart: unless-stopped
+    depends_on:
+      - teleblog
+      - redis
+    volumes:
+      - ./data:/data
+      - ./chats:/chats:ro
+    environment:
+      - TELEBLOG_CONFIG=/data/teleblog.yaml
+      - QUEUE_PROVIDER=redis
+      - QUEUE_URL=redis://redis:6379
+      - S3_ENDPOINT_URL=http://teleblog:9199
+      - AWS_ACCESS_KEY_ID=\${AWS_ACCESS_KEY_ID:-minioadmin}
+      - AWS_SECRET_ACCESS_KEY=\${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      - S3_REGION=\${S3_REGION:-us-east-1}
+      - TELEBLOG_INSTANCE_NAME=\${TELEBLOG_INSTANCE_NAME:-}
+    command: ["--worker"]
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:
 COMPOSE_EOF
 }
 

@@ -14,6 +14,12 @@ chmod +x install.sh
 The installer flow is deterministic:
 1) language -> 2) data folder -> 3) Docker check/install/start -> 4) image pull -> 5) docker-compose up.
 
+**teleblog** — MinIO, nginx, setup wizard, app. Every 10 min sends parse tasks to Redis.
+**teleblog-worker** — consumes tasks from Redis, parses channels, generates HTML. Scale replicas as needed.
+**redis** — queue.
+
+Scale workers: `docker compose up -d --scale teleblog-worker=3`
+
 All data in one folder: `data/` (config), `chats/` (exports), `docker-compose.yml`.
 
 If something fails, installer prints explicit `ERROR:` and writes structured events to:
