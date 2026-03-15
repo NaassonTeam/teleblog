@@ -12,7 +12,9 @@ chmod +x install.sh
 ```
 
 The installer flow is deterministic:
-1) language -> 2) data folder -> 3) Docker check/install/start -> 4) image pull -> 5) container run.
+1) language -> 2) data folder -> 3) Docker check/install/start -> 4) image pull -> 5) docker-compose up.
+
+All data in one folder: `data/` (config), `chats/` (exports), `docker-compose.yml`.
 
 If something fails, installer prints explicit `ERROR:` and writes structured events to:
 - `./teleblog-installer.ndjson` (before folder selection)
@@ -38,14 +40,14 @@ chmod +x install.sh
 ./install.sh -y
 ```
 
-Or manually (from anywhere):
+Or manually (from your data folder):
 
 ```bash
-docker pull cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest
-docker restart teleblog
+cd /path/to/your/teleblog/folder
+docker compose pull && docker compose up -d
 ```
 
-Data, TOTP and config are preserved.
+Data, TOTP and config are preserved. The admin panel shows the exact update command (copy button).
 
 ## Non-interactive
 
@@ -53,6 +55,7 @@ Data, TOTP and config are preserved.
 
 Useful env vars:
 - `TELEBLOG_IMAGE=cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest` (default, multi-arch: native arm64 on Mac)
+- `TELEBLOG_DOCKER_SOCKET=1` (mount Docker socket for Restart button in admin panel)
 - `TELEBLOG_INSTANCE_NAME=my-blog` (shown in TOTP QR, helps distinguish multiple instances)
 - `TELEBLOG_LANG=ru|en|zh|ar`
 - `TELEBLOG_ROOT=/path/to/folder`
@@ -65,7 +68,12 @@ Installer now waits until HTTP on `localhost:BLOG_PORT` is actually ready before
 
 ## Version
 
-See [VERSION](VERSION).
+See [VERSION](VERSION). At startup, `docker logs teleblog` shows build version. If you don't see updates, rebuild locally: `docker build --target selfhost -t your-image .` or pull the latest from registry.
+
+## Telegram Export
+
+Put structured export in `./chats/folder_name/` (result.json + photos/ + files/).
+See `docs/telegram-export-format.md` in the repo for structure.
 
 ## License
 

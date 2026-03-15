@@ -416,13 +416,34 @@ ensure_docker() {
   done
 }
 
+write_compose() {
+  local socket_line=""
+  [[ -n "${TELEBLOG_DOCKER_SOCKET:-}" ]] && socket_line=$'      - /var/run/docker.sock:/var/run/docker.sock\n'
+  cat > "$ROOT/docker-compose.yml" << COMPOSE_EOF
+# Teleblog self-host — all data in one folder
+services:
+  teleblog:
+    image: \${TELEBLOG_IMAGE:-cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest}
+    container_name: \${TELEBLOG_CONTAINER:-teleblog}
+    restart: unless-stopped
+    ports:
+      - "\${BLOG_PORT:-7433}:\${BLOG_PORT:-7433}"
+    volumes:
+      - ./data:/data
+      - ./chats:/chats:ro
+${socket_line}    environment:
+      - BLOG_PORT=\${BLOG_PORT:-7433}
+      - TELEBLOG_INSTANCE_NAME=\${TELEBLOG_INSTANCE_NAME:-}
+COMPOSE_EOF
+}
+
 run_container() {
   step_begin "run"
   log_info "Preparing directories..."
   mkdir -p "$DATA_DIR" "$CHATS_DIR" || die "run" "Cannot create data directories"
 
   if [[ $DRY_RUN -eq 1 ]]; then
-    log_info "DRY RUN: skip docker pull/run"
+    log_info "DRY RUN: skip docker-compose"
     step_end "success"
     return
   fi
@@ -443,34 +464,20 @@ run_container() {
     die "run" "docker pull failed for $IMAGE. Error: $err_text"
   fi
   rm -f "$pull_err"
-  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
-  # Multi-arch image: Docker auto-selects arm64 on Mac, amd64 elsewhere. Override via TELEBLOG_DOCKER_PLATFORM.
-  if [[ "$PLATFORM" == "mac" && "$(uname -m)" == "arm64" ]]; then
-    log_info "Apple Silicon: using native arm64 image."
-  fi
-  local extra_env=""
-  [[ -n "${INSTANCE_NAME:-}" ]] && extra_env="-e TELEBLOG_INSTANCE_NAME=$INSTANCE_NAME"
+
+  export TELEBLOG_IMAGE="$IMAGE"
+  export TELEBLOG_CONTAINER="$CONTAINER"
+  export BLOG_PORT="$BLOG_PORT"
+  [[ -n "${INSTANCE_NAME:-}" ]] && export TELEBLOG_INSTANCE_NAME="$INSTANCE_NAME"
+  write_compose
+
   if [[ -n "$DOCKER_RUN_PLATFORM" ]]; then
-    docker run -d --platform "$DOCKER_RUN_PLATFORM" \
-      -e BLOG_PORT="$BLOG_PORT" \
-      $extra_env \
-      --name "$CONTAINER" \
-      -v "$DATA_DIR:/data" \
-      -v "$CHATS_DIR:/chats:ro" \
-      -p "$BLOG_PORT:$BLOG_PORT" \
-      --restart unless-stopped \
-      "$IMAGE" >/dev/null || die "run" "docker run failed"
-  else
-    docker run -d \
-      -e BLOG_PORT="$BLOG_PORT" \
-      $extra_env \
-      --name "$CONTAINER" \
-      -v "$DATA_DIR:/data" \
-      -v "$CHATS_DIR:/chats:ro" \
-      -p "$BLOG_PORT:$BLOG_PORT" \
-      --restart unless-stopped \
-      "$IMAGE" >/dev/null || die "run" "docker run failed"
+    export DOCKER_DEFAULT_PLATFORM="$DOCKER_RUN_PLATFORM"
   fi
+
+  log_info "Starting with docker-compose..."
+  (cd "$ROOT" && docker compose down 2>/dev/null || true)
+  (cd "$ROOT" && docker compose up -d) || die "run" "docker compose up failed"
 
   wait_http_ready
 
@@ -480,11 +487,15 @@ run_container() {
 stop_container() {
   step_begin "stop"
   if [[ $DRY_RUN -eq 1 ]]; then
-    log_info "DRY RUN: skip docker rm"
+    log_info "DRY RUN: skip docker compose down"
     step_end "success"
     return
   fi
-  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  if [[ -f "$ROOT/docker-compose.yml" ]]; then
+    (cd "$ROOT" && docker compose down 2>/dev/null) || true
+  else
+    docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  fi
   step_end "success"
 }
 
@@ -512,6 +523,7 @@ main() {
   log_info "Image: $IMAGE"
 
   if [[ "$CMD" == "stop" ]]; then
+    resolve_root
     stop_container
     log_info "$(msg stopped) $CONTAINER"
     event_log "run" "finish" "success" "" 0 "stop completed"
@@ -530,7 +542,7 @@ main() {
   log_info "$(msg done)"
   echo ""
   log_info "Open: http://localhost:${BLOG_PORT}"
-  log_info "Data: $DATA_DIR"
+  log_info "Data: $ROOT (data/, chats/, docker-compose.yml)"
   log_info "Exports: $CHATS_DIR (./chats/channel_name/result.json)"
   event_log "run" "finish" "success" "" 0 "installer completed"
 }
