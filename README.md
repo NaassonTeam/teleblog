@@ -30,6 +30,7 @@ If something fails, installer prints explicit `ERROR:` and writes structured eve
 
 Useful env vars:
 - `TELEBLOG_IMAGE=cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest` (default, multi-arch: native arm64 on Mac)
+- `TELEBLOG_INSTANCE_NAME=my-blog` (shown in TOTP QR, helps distinguish multiple instances)
 - `TELEBLOG_LANG=ru|en|zh|ar`
 - `TELEBLOG_ROOT=/path/to/folder`
 - `BLOG_PORT=7433` (host and container; nginx listens on this port)

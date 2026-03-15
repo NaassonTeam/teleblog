@@ -20,6 +20,7 @@ LOG_PREFIX="[teleblog]"
 ROOT=""
 DATA_DIR=""
 CHATS_DIR=""
+INSTANCE_NAME="${TELEBLOG_INSTANCE_NAME:-}"
 LANG="${TELEBLOG_LANG:-en}"
 SKIP_PROMPTS=0
 DRY_RUN="${TELEBLOG_DRY_RUN:-0}"
@@ -107,6 +108,9 @@ msg() {
     ru) case "$k" in
       lang_select) echo "Выберите язык / Select language:" ;;
       folder_enter) echo "Папка для данных (Enter = текущая):" ;;
+      instance_enter) echo "Название инстанса для QR (Enter = пропустить):" ;;
+      instance_skip) echo "пропустить" ;;
+      instance_set) echo "Инстанс:" ;;
       installer_data) echo "Установщик Teleblog — данные:" ;;
       docker_check) echo "Проверяем Docker..." ;;
       docker_starting) echo "Запускаем Docker..." ;;
@@ -120,6 +124,9 @@ msg() {
     zh) case "$k" in
       lang_select) echo "选择语言 / Select language:" ;;
       folder_enter) echo "数据目录（Enter=当前目录）:" ;;
+      instance_enter) echo "实例名称（用于 QR，Enter=跳过）:" ;;
+      instance_skip) echo "跳过" ;;
+      instance_set) echo "实例:" ;;
       installer_data) echo "Teleblog 安装目录:" ;;
       docker_check) echo "检查 Docker..." ;;
       docker_starting) echo "启动 Docker..." ;;
@@ -133,6 +140,9 @@ msg() {
     ar) case "$k" in
       lang_select) echo "اختر اللغة / Select language:" ;;
       folder_enter) echo "مجلد البيانات (Enter = الحالي):" ;;
+      instance_enter) echo "اسم المثيل للـ QR (Enter = تخطي):" ;;
+      instance_skip) echo "تخطي" ;;
+      instance_set) echo "المثيل:" ;;
       installer_data) echo "مسار بيانات Teleblog:" ;;
       docker_check) echo "جار التحقق من Docker..." ;;
       docker_starting) echo "جار تشغيل Docker..." ;;
@@ -146,6 +156,9 @@ msg() {
     *) case "$k" in
       lang_select) echo "Select language:" ;;
       folder_enter) echo "Folder for data (Enter = current):" ;;
+      instance_enter) echo "Instance name for QR (Enter = skip):" ;;
+      instance_skip) echo "skip" ;;
+      instance_set) echo "Instance:" ;;
       installer_data) echo "Teleblog installer data path:" ;;
       docker_check) echo "Checking Docker..." ;;
       docker_starting) echo "Starting Docker..." ;;
@@ -230,6 +243,26 @@ resolve_root() {
   DATA_DIR="$ROOT/data"
   CHATS_DIR="$ROOT/chats"
   step_end "success"
+}
+
+resolve_instance() {
+  if [[ -n "${TELEBLOG_INSTANCE_NAME:-}" ]]; then
+    INSTANCE_NAME="$TELEBLOG_INSTANCE_NAME"
+    return
+  fi
+  if [[ $SKIP_PROMPTS -eq 1 || ! -t 0 ]]; then
+    return
+  fi
+  echo ""
+  log_info "$(msg instance_enter)"
+  printf "[%s]> " "$(msg instance_skip)"
+  local input
+  read -r input
+  input="$(printf '%s' "$input" | tr -cd 'a-zA-Z0-9_-' | head -c 32)"
+  if [[ -n "$input" ]]; then
+    INSTANCE_NAME="$input"
+    log_info "$(msg instance_set) $INSTANCE_NAME"
+  fi
 }
 
 docker_state() {
@@ -415,9 +448,12 @@ run_container() {
   if [[ "$PLATFORM" == "mac" && "$(uname -m)" == "arm64" ]]; then
     log_info "Apple Silicon: using native arm64 image."
   fi
+  local extra_env=""
+  [[ -n "${INSTANCE_NAME:-}" ]] && extra_env="-e TELEBLOG_INSTANCE_NAME=$INSTANCE_NAME"
   if [[ -n "$DOCKER_RUN_PLATFORM" ]]; then
     docker run -d --platform "$DOCKER_RUN_PLATFORM" \
       -e BLOG_PORT="$BLOG_PORT" \
+      $extra_env \
       --name "$CONTAINER" \
       -v "$DATA_DIR:/data" \
       -v "$CHATS_DIR:/chats:ro" \
@@ -427,6 +463,7 @@ run_container() {
   else
     docker run -d \
       -e BLOG_PORT="$BLOG_PORT" \
+      $extra_env \
       --name "$CONTAINER" \
       -v "$DATA_DIR:/data" \
       -v "$CHATS_DIR:/chats:ro" \
@@ -484,6 +521,7 @@ main() {
   select_lang
   log_info "Language: $LANG"
   resolve_root
+  resolve_instance
   EVENT_LOG="${TELEBLOG_EVENT_LOG:-$ROOT/teleblog-installer.ndjson}"
   log_info "$(msg installer_data) $DATA_DIR"
   ensure_docker
