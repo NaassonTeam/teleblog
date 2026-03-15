@@ -472,6 +472,7 @@ run_container() {
   step_begin "run"
   log_info "Preparing directories..."
   mkdir -p "$DATA_DIR" "$CHATS_DIR" || die "run" "Cannot create data directories"
+  printf '%s' "$ROOT" > "$DATA_DIR/.install_root"
 
   if [[ $DRY_RUN -eq 1 ]]; then
     log_info "DRY RUN: skip docker-compose"
