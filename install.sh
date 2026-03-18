@@ -457,6 +457,7 @@ services:
       - "9199:9199"
     volumes:
       - ./data:/data
+      - minio-data:/data/minio
       - ./chats:/chats:ro
 ${socket_line}    environment:
       - BLOG_PORT=\${BLOG_PORT:-7433}
@@ -494,6 +495,7 @@ ${socket_line}    environment:
 
 volumes:
   redis-data:
+  minio-data:
 COMPOSE_EOF
 }
 
