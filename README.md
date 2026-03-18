@@ -76,6 +76,18 @@ Installer now waits until HTTP on `localhost:BLOG_PORT` is actually ready before
 
 See [VERSION](VERSION). At startup, `docker logs teleblog` shows build version. If you don't see updates, rebuild locally: `docker build --target selfhost -t your-image .` or pull the latest from registry.
 
+## Troubleshooting
+
+**"too many open files"** — when parsing channels with many files. The installer raises the limit and sets ulimits in docker-compose. If the error persists:
+
+- **macOS**: `sudo launchctl limit maxfiles 65536 200000`, then restart containers.
+- **Linux**: add to `/etc/security/limits.conf`:
+  ```
+  * soft nofile 65536
+  * hard nofile 65536
+  ```
+  Or run `ulimit -n 65536` in the session before `docker compose up`.
+
 ## Telegram Export
 
 Put structured export in `./chats/folder_name/` (result.json + photos/ + files/).

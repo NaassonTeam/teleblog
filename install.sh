@@ -13,7 +13,7 @@ set -uo pipefail
 CONTAINER="teleblog"
 IMAGE="${TELEBLOG_IMAGE:-cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest}"
 BLOG_PORT="${BLOG_PORT:-7433}"
-INSTALLER_BUILD="2026.03.14-r1"
+INSTALLER_BUILD="2026.03.18-r1"
 RUN_ID="run_$(date +%s)"
 LOG_PREFIX="[teleblog]"
 
@@ -326,6 +326,27 @@ start_docker() {
   esac
 }
 
+raise_maxfiles_if_needed() {
+  if [[ $DRY_RUN -eq 1 ]]; then return; fi
+  case "$PLATFORM" in
+    mac)
+      local current
+      current="$(launchctl limit maxfiles 2>/dev/null | awk 'NR==1 {print $2}' || echo 0)"
+      if [[ "${current:-0}" -lt 65536 ]] 2>/dev/null; then
+        if sudo -n launchctl limit maxfiles 65536 200000 2>/dev/null; then
+          log_info "Raised maxfiles to 65536 (was ${current:-?})"
+        else
+          log_warn "If you see 'too many open files', run: sudo launchctl limit maxfiles 65536 200000"
+        fi
+      fi
+      ;;
+    linux)
+      ulimit -n 65536 2>/dev/null || true
+      ;;
+    *) ;;
+  esac
+}
+
 wait_docker_ready() {
   local waited=0
   while [[ $waited -lt 180 ]]; do
@@ -427,6 +448,10 @@ services:
     image: \${TELEBLOG_IMAGE:-cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest}
     container_name: \${TELEBLOG_CONTAINER:-teleblog}
     restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     ports:
       - "\${BLOG_PORT:-7433}:\${BLOG_PORT:-7433}"
       - "9199:9199"
@@ -441,6 +466,10 @@ ${socket_line}    environment:
   teleblog-worker:
     image: \${TELEBLOG_IMAGE:-cr.yandex/crpdlb5mvkseemurnl69/teleblog-selfhost:latest}
     restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     depends_on:
       - teleblog
       - redis
@@ -569,6 +598,7 @@ main() {
   EVENT_LOG="${TELEBLOG_EVENT_LOG:-$ROOT/teleblog-installer.ndjson}"
   log_info "$(msg installer_data) $DATA_DIR"
   ensure_docker
+  raise_maxfiles_if_needed
   run_container
 
   log_info "$(msg done)"
